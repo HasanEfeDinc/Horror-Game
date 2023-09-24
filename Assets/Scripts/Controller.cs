@@ -9,21 +9,29 @@ using UnityStandardAssets.CrossPlatformInput;
 public class Controller : MonoBehaviour
 {
     [SerializeField] private Camera m_Camera;
-    [SerializeField] private float speed = 3;
+    [SerializeField] private float speed = 2.5f;
     [SerializeField] private MouseLook m_MouseLook;
     [SerializeField] private AudioClip[] m_FootstepSounds;
-    [SerializeField] [Range(0f, 1f)] private float m_RunstepLenghten;
-    [SerializeField] private float m_StepInterval;
+    private float m_RunstepLenghten = 0.593f;
+    [SerializeField] private float m_StepInterval = 7;
     [SerializeField] AudioSource m_AudioSource;
-    [SerializeField] private bool m_IsWalking;
-    [SerializeField] private float fatigue = 0.0f; 
-    [SerializeField] private float fatigueIncreaseRate = 25f; 
-    [SerializeField] private float fatigueDecreaseRate = 25f; 
-    [SerializeField] private bool tired;
+     private bool m_IsWalking;
+     private float m_GravityMultiplier = 2;
+     private float fatigue = 0.0f; 
+     private float fatigueIncreaseRate = 25f; 
+     private float fatigueDecreaseRate = 25f; 
+     private bool tired = false;
 
     private CharacterController m_CharacterController;
+    private Rigidbody m_Rigibody;
+    private CollisionFlags m_CollisionFlags;
+    private Vector3 m_MoveDir = Vector3.zero;
+    private Vector2 m_Input;
+    
     private float m_StepCycle;
     private float m_NextStep;
+    private bool m_PreviouslyGrounded;
+    private bool pressedshift;
     
 
 
@@ -31,27 +39,42 @@ public class Controller : MonoBehaviour
     private void Start()
     {
         m_CharacterController = gameObject.GetComponent<CharacterController>();
+        m_Rigibody = gameObject.GetComponent<Rigidbody>();
         m_MouseLook.Init(transform , m_Camera.transform);
     }
 
     private void Update()
     {
         
+        if (!m_CharacterController.isGrounded)
+        {
+            m_MoveDir += Physics.gravity*m_GravityMultiplier*Time.fixedDeltaTime;
+        }
+        
         fatigue = Mathf.Clamp(fatigue, 0.0f, 100.0f);
         RotateView();
         float HorizontalInput = Input.GetAxis("Horizontal");
         float VerticalInput = Input.GetAxis("Vertical");
 
-        Vector3 MoveDir = new Vector3(HorizontalInput,0f,VerticalInput);
-        ProgressStepCycle(speed,MoveDir);
-
-        transform.Translate(MoveDir*speed*Time.deltaTime);
-        
+        m_Input = new Vector2(HorizontalInput, VerticalInput);
+        if (m_Input.sqrMagnitude > 1)
+        {
+            m_Input.Normalize();
+        }
+        Vector3 desiredMove = transform.forward*m_Input.y + transform.right*m_Input.x;
         RaycastHit hitInfo;
         Physics.SphereCast(transform.position, m_CharacterController.radius, Vector3.down, out hitInfo,
             m_CharacterController.height/2f, Physics.AllLayers, QueryTriggerInteraction.Ignore);
-        MoveDir = Vector3.ProjectOnPlane(MoveDir, hitInfo.normal).normalized;
-        if (MoveDir != Vector3.zero)
+        desiredMove = Vector3.ProjectOnPlane(desiredMove, hitInfo.normal).normalized;
+
+        m_MoveDir.x = desiredMove.x*speed;
+        m_MoveDir.z = desiredMove.z*speed;
+        
+        m_CollisionFlags = m_CharacterController.Move(m_MoveDir * Time.fixedDeltaTime);
+        
+        ProgressStepCycle(speed);
+        
+        if (m_MoveDir != Vector3.zero)
         {
             m_IsWalking = true;
         }
@@ -66,7 +89,7 @@ public class Controller : MonoBehaviour
             if (!tired)
             {
                 fatigue += fatigueIncreaseRate * Time.deltaTime;
-                speed = 6;
+                speed = 5;
             }
             if (fatigue >= 95f)
             {
@@ -78,14 +101,30 @@ public class Controller : MonoBehaviour
             }
             if (tired)
             {
-                speed = 3;
+                speed = 2.5f;
                 fatigue -= fatigueDecreaseRate * Time.deltaTime;
             }
+            
         }
         else
         {
-            speed = 3;
+            speed = 2.5f;
         }
+
+        if (!pressedshift)
+        {
+            fatigue -= fatigueDecreaseRate * Time.deltaTime;
+        }
+
+        if (Input.GetKeyDown(KeyCode.LeftShift))
+        {
+            pressedshift = true;
+        }
+        if (Input.GetKeyUp(KeyCode.LeftShift))
+        {
+            pressedshift = false;
+        }
+        
         // Energy Part
     }
 
@@ -112,11 +151,11 @@ public class Controller : MonoBehaviour
         m_FootstepSounds[n] = m_FootstepSounds[0];
         m_FootstepSounds[0] = m_AudioSource.clip;
     }
-    private void ProgressStepCycle(float speed, Vector3 Dir)
+    private void ProgressStepCycle(float speedd)
     {
-        if (Dir != Vector3.zero)
+        if (m_CharacterController.velocity.sqrMagnitude > 0 && (m_Input.x != 0 || m_Input.y != 0))
         {
-            m_StepCycle += (m_CharacterController.velocity.magnitude + (speed*(m_IsWalking ? 1f : m_RunstepLenghten)))*
+            m_StepCycle += (m_CharacterController.velocity.magnitude + (speedd*(m_IsWalking ? 1f : m_RunstepLenghten)))*
                            Time.fixedDeltaTime;
         }
 
@@ -128,6 +167,21 @@ public class Controller : MonoBehaviour
         m_NextStep = m_StepCycle + m_StepInterval;
 
         PlayFootStepAudio();
+    }
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        Rigidbody body = hit.collider.attachedRigidbody;
+        //dont move the rigidbody if the character is on top of it
+        if (m_CollisionFlags == CollisionFlags.Below)
+        {
+            return;
+        }
+
+        if (body == null || body.isKinematic)
+        {
+            return;
+        }
+        body.AddForceAtPosition(m_CharacterController.velocity*0.1f, hit.point, ForceMode.Impulse);
     }
     
     

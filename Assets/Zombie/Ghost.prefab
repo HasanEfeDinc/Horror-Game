@@ -1049,7 +1049,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9cad7deebdd8eaa42a6e91c0cfa67b74, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  targetObjectName: FPSController
+  targetObjectName: Controller
 --- !u!1 &7205756642432460571
 GameObject:
   m_ObjectHideFlags: 0
