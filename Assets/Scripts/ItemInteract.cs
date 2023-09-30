@@ -12,6 +12,7 @@ public class ItemInteract : MonoBehaviour
     [SerializeField] private LayerMask PickupLayer;
     [SerializeField] private LayerMask DoorLayer;
     [SerializeField] private LayerMask DoubleDoorLayer;
+    [SerializeField] private LayerMask LockerLayer;
     [SerializeField] private LayerMask GhostIdleLayer;
     [SerializeField] private GameObject Flashlight, Emf, Cross, Box, Book, Thermometer;
     [SerializeField] private Transform SpawnTransform;
@@ -262,6 +263,29 @@ public class ItemInteract : MonoBehaviour
                      hit.transform.gameObject.GetComponentInParent<DoorScript>().animateable = false;
                      hit.transform.gameObject.GetComponentInParent<Animator>().Play("DD Closing");
 
+                 }
+             }
+         }
+
+         if (Physics.Raycast(CameraTransform.position, CameraTransform.forward, out hit, distance, LockerLayer))
+         {
+             OpenImage.SetActive(true);
+             if (Input.GetKeyDown(KeyCode.E))
+             {
+                 if (Input.GetKeyDown(KeyCode.E))
+                 {
+                     if (hit.transform.gameObject.GetComponent<LockerScript>().doorisopen == false && hit.transform.gameObject.GetComponent<LockerScript>().animateable == true)
+                     {
+                         hit.transform.gameObject.GetComponent<LockerScript>().animateable = false;
+                         hit.transform.gameObject.GetComponent<Animator>().Play("lockeropening");
+
+                     }
+                     if (hit.transform.gameObject.GetComponent<LockerScript>().doorisopen == true && hit.transform.gameObject.GetComponent<LockerScript>().animateable == true)
+                     {
+                         hit.transform.gameObject.GetComponent<LockerScript>().animateable = false;
+                         hit.transform.gameObject.GetComponent<Animator>().Play("lockerclosing");
+
+                     }
                  }
              }
          }
